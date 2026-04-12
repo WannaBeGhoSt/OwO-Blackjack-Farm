@@ -158,10 +158,20 @@ def parse_game_state(text):
     player_cards = []
     for i, line in enumerate(lines):
         if re.search(r"\[\d+\*?\]", line) and not re.search(r"[Dd]ealer", line):
-            for j in range(i + 1, min(i + 3, len(lines))):
-                card_matches = re.findall(card_pattern, lines[j])
-                for cm in card_matches:
-                    player_cards.append(cm)
+            for j in range(i + 1, len(lines)):
+                current_line = lines[j]
+                if re.search(r"[Dd]ealer", current_line):
+                    break
+                if current_line.strip().startswith("```") or "game in progress" in current_line.lower():
+                    break
+
+                card_matches = re.findall(card_pattern, current_line)
+                if card_matches:
+                    player_cards.extend(card_matches)
+                    continue
+
+                if player_cards and current_line.strip():
+                    break
             break
 
     if not player_cards:
@@ -380,23 +390,17 @@ async def run_farm(ctx):
 
                 emoji = "👊" if action == "hit" else "🛑"
 
-                if last_reaction and last_reaction == emoji:
+                if last_reaction:
                     try:
-                        await msg.remove_reaction(emoji, ghosty.user)
+                        await msg.remove_reaction(last_reaction, ghosty.user)
                     except Exception as e:
                         print(f"{Fore.RED}[remove reaction error] {e}{Style.RESET_ALL}")
-                elif last_reaction and last_reaction != emoji:
-                    try:
-                        await msg.add_reaction(emoji)
-                        last_reaction = emoji
-                    except Exception as e:
-                        print(f"{Fore.RED}[react error] {e}{Style.RESET_ALL}")
-                else:
-                    try:
-                        await msg.add_reaction(emoji)
-                        last_reaction = emoji
-                    except Exception as e:
-                        print(f"{Fore.RED}[react error] {e}{Style.RESET_ALL}")
+
+                try:
+                    await msg.add_reaction(emoji)
+                    last_reaction = emoji
+                except Exception as e:
+                    print(f"{Fore.RED}[react error] {e}{Style.RESET_ALL}")
                 
                 data["commands_used"] += 1
                 save_data(data)
