@@ -141,10 +141,10 @@ def decide(text):
         total, soft = hand_value(player_values)
         action = basic_strategy(total, dealer_rank, soft)
         print(f"{Fore.YELLOW}[DECIDE] Cards={player_values} total={total} soft={soft} dealer={dealer_rank} → {action}{Style.RESET_ALL}")
-        return action
+        return action, total
     except Exception as e:
         print(f"{Fore.RED}[DECIDE ERROR] {e}{Style.RESET_ALL}")
-        return 'stand'
+        return 'stand', 0
 
 def parse_game_state(text):
     card_pattern = r":([^:]+):"
@@ -334,6 +334,7 @@ async def run_farm(ctx):
                 await asyncio.sleep(5)
                 continue
             last_reaction = None
+            last_action_state = None
 
             while farming_active:
                 if await check_warning(ctx):
@@ -386,19 +387,29 @@ async def run_farm(ctx):
                         continue
                 
 
-                action = decide(full_text)
+                state_key = re.sub(r"\s+", " ", full_text).strip()
+                if state_key == last_action_state:
+                    await asyncio.sleep(1)
+                    continue
+
+                action, _ = decide(full_text)
 
                 emoji = "👊" if action == "hit" else "🛑"
 
-                if last_reaction:
+                if last_reaction == emoji:
                     try:
-                        await msg.remove_reaction(last_reaction, ghosty.user)
+                        await msg.remove_reaction(emoji, ghosty.user)
+                        last_reaction = None
+                        last_action_state = state_key
+                        await asyncio.sleep(0.4)
+                        continue
                     except Exception as e:
                         print(f"{Fore.RED}[remove reaction error] {e}{Style.RESET_ALL}")
 
                 try:
                     await msg.add_reaction(emoji)
                     last_reaction = emoji
+                    last_action_state = state_key
                 except Exception as e:
                     print(f"{Fore.RED}[react error] {e}{Style.RESET_ALL}")
                 
