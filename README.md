@@ -1,4 +1,4 @@
-# GhoSty OwO BlackJack Farm V2
+# GhoSty OwO BlackJack Farm V2.1
 
 ## ⚠️ Disclaimer  
 
@@ -11,6 +11,8 @@ A Python-based Discord self-bot that is focused on OwO Bot's Blackjack Gamble Au
 - 🚨 **No Guarantee** - The Author Does Not Guarantee Any Continuous Wins Or Loop Holes To Win Again And Again In The Gambling.
 - 🔄 **Automation** - Automates OwO's BlackJack For Gambling OwO Cash.
 - ⚡ **Fast & Secure** – Optimized for speed and security.
+- 😴 **Smart Sleep** – Lifetime-mode work/break cycles for anti-detection.
+- ✨ **Smart Betting** - Smart Bet Strategy. 
 
 ## 📖 Installation & Usage  
 
@@ -40,7 +42,7 @@ python main.py
 
 - **GhoSty (Brutality)**  
 - **Discord:** [@ghostyjija](https://discord.com/users/ghostyjija)  
-- **Support Server:** [Join Here](https://discord.gg/SyMJymrV8x)  
+- **Support Server:** [Join Here](https://discord.gg/mSasJWY8Gw)  
 
 ## 🤝 Contributing  
 
