@@ -2,11 +2,11 @@
 This code is only made for educational and practice purposes. 
 Author and Async Development are not responsible for misuse.
 
-GhoSty OwO BlackJack V2 Stable Build
-Stable Alpha Build Version: 120426.2.0.0
+GhoSty OwO BlackJack V2.1 Stable Build
+Stable Alpha Build Version: 080726.2.1.0
 
 GitHub: https://github.com/WannaBeGhoSt
-Discord: https://discord.gg/SyMJymrV8x
+Discord: https://discord.gg/mSasJWY8Gw
 """
 
 import discord
@@ -14,7 +14,7 @@ from discord import emoji
 from discord.ext import commands
 from colorama import Fore, Style, init as colorama_init
 import asyncio, json, re, os, time, unicodedata, sys
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 
 colorama_init()
@@ -35,16 +35,36 @@ ghosty.remove_command("help")
 @ghosty.event
 async def on_ready():
     print(
-        f"{Fore.LIGHTRED_EX} > GhoSty OwO BlackJack Farm v2 Connected To:{Style.RESET_ALL}",
+        f"{Fore.LIGHTRED_EX} > GhoSty OwO BlackJack Farm v2.1 Connected To:{Style.RESET_ALL}",
         f"{Fore.LIGHTGREEN_EX}{ghosty.user}{Style.BRIGHT}{Style.RESET_ALL}",
     )
-    print(f"{Fore.LIGHTRED_EX} > Released - 12 April 2026 [Join Async Development For Further Updates]{Style.RESET_ALL}")
-    print(f"{Fore.CYAN} > https://discord.gg/SyMJymrV8x {Style.RESET_ALL}")
+    print(f"{Fore.LIGHTRED_EX} > Released - 8 July 2026 [Join Async Development For Further Updates]{Style.RESET_ALL}")
+    print(f"{Fore.CYAN} > https://discord.gg/mSasJWY8Gw {Style.RESET_ALL}")
 
 farming_active = False
 farm_task = None
 DATA_FILE = "data.json"
 OWO_BOT_ID = 408785106942164992
+
+GHOSTY_LIFETIME_MODULE = {
+    "action_delay_min": 7.0,
+    "action_delay_max": 22.0,
+    "random_long_delay_min": 250,
+    "random_long_delay_max": 550,
+    "reaction_delay_min": 1.2,
+    "reaction_delay_max": 2.8,
+    "work_duration_min": 3 * 3600,  
+    "work_duration_max": 5 * 3600,  
+    "break_duration_min": 9 * 3600, 
+    "break_duration_max": 14 * 3600,
+    "day_skip_threshold": 3,
+    "day_skip_duration": 24 * 3600,
+}
+_sleep_mode = False
+_farming_start_time = None
+_lifetime_cycle_start_time = None
+_lifetime_work_cycles = 0
+_lifetime_day_skip_active = False
 
 def parse_time_to_seconds(time_str):
     seconds = 0
@@ -102,7 +122,7 @@ config = load_config()
 BET_SEQUENCES = {
     # "Low": [2000, 3011, 7000, 15777, 29000, 58000, 115123], old low sequence not in use
     "Low": [488, 976, 1952, 3904, 7808, 15616, 31232, 62464, 124928, 249856],
-    "High": [10000, 25000, 50000, 100000, 180000, 240000] # not recommended due to higher risk of hitting max bet limit, but included for variety
+    "High": [10000, 25000, 50000, 100000, 180000, 240000] # not recommended due to higher risk of losing, but included for variety
 }
 
 def parse_balance(text):
@@ -227,14 +247,17 @@ def get_owo_text(msg):
 
 async def fetch_owo_balance(ctx):
     last_owo_id = None
-    try:
-        pre_history = await ctx.channel.history(limit=10).flatten()
-        for m in pre_history:
-            if m.author.id == OWO_BOT_ID:
-                last_owo_id = m.id
-                break
-    except Exception as e:
-        print(f"{Fore.RED}[snapshot error] {e}{Style.RESET_ALL}")
+    for attempt in range(3):
+        try:
+            pre_history = await ctx.channel.history(limit=10).flatten()
+            for m in pre_history:
+                if m.author.id == OWO_BOT_ID:
+                    last_owo_id = m.id
+                    break
+            break
+        except Exception as e:
+            print(f"{Fore.RED}[balance snapshot error] {e}. Retrying {attempt + 1}/3...{Style.RESET_ALL}")
+            await asyncio.sleep(2)
 
     await ctx.send("owo cash")
 
@@ -286,14 +309,81 @@ async def check_warning(ctx):
 
 async def run_farm(ctx):
     global farming_active, data
-    
+    global _sleep_mode, _farming_start_time, _lifetime_cycle_start_time
+    global _lifetime_work_cycles, _lifetime_day_skip_active
+
     farming_active = True
+    _sleep_mode = False
+    _farming_start_time = datetime.now()
+    _lifetime_cycle_start_time = datetime.now()
+    _lifetime_work_cycles = 0
+    _lifetime_day_skip_active = False
     print(f"{Fore.GREEN}[FARM] Started.{Style.RESET_ALL}")
     
     seq_idx = data.get("seq_index", 0)
     
     while farming_active:
         try:
+            if not _sleep_mode:
+                current_time = datetime.now()
+                if not _lifetime_day_skip_active:
+                    if _lifetime_work_cycles >= GHOSTY_LIFETIME_MODULE["day_skip_threshold"] and random.random() < 0.5:
+                        _lifetime_day_skip_active = True
+                        day_skip_duration = GHOSTY_LIFETIME_MODULE["day_skip_duration"]
+                        skip_end_time = current_time + timedelta(seconds=day_skip_duration)
+                        await ctx.send(
+                            f"😴 **SMART SLEEP: DAY SKIP ACTIVATED** 🌙\n"
+                            f"Full 24-hour rest for detection bypass. Will resume at **{skip_end_time.strftime('%d-%b-%Y %I:%M:%S %p')}**"
+                        )
+                        print(f"{Fore.YELLOW}[SMART SLEEP] DAY SKIP started — 24h rest{Style.RESET_ALL}")
+                        await asyncio.sleep(day_skip_duration)
+                        _lifetime_day_skip_active = False
+                        _lifetime_work_cycles = 0
+                        _lifetime_cycle_start_time = datetime.now()
+                        await ctx.send("⏰ **SMART SLEEP: RESUMING AFTER DAY SKIP** 🚀")
+                        print(f"{Fore.GREEN}[SMART SLEEP] DAY SKIP ENDED — resuming{Style.RESET_ALL}")
+                        continue
+
+
+
+                if _lifetime_cycle_start_time is not None:
+                    work_duration = random.uniform(
+                        GHOSTY_LIFETIME_MODULE["work_duration_min"],
+                        GHOSTY_LIFETIME_MODULE["work_duration_max"],
+                    )
+                    elapsed_cycle_time = (current_time - _lifetime_cycle_start_time).total_seconds()
+
+                    if elapsed_cycle_time >= work_duration:
+                        _sleep_mode = True
+                        break_duration = random.uniform(
+                            GHOSTY_LIFETIME_MODULE["break_duration_min"],
+                            GHOSTY_LIFETIME_MODULE["break_duration_max"],
+                        )
+                        sleep_end_time = current_time + timedelta(seconds=break_duration)
+                        _lifetime_work_cycles += 1
+                        hours, remainder = divmod(int(break_duration), 3600)
+                        mins = remainder // 60
+                        await ctx.send(
+                            f"😴 **SMART SLEEP: BREAK TIME** 🌙\n"
+                            f"Work cycle #{_lifetime_work_cycles} complete. Breaking for {hours}h {mins}m. "
+                            f"Resume at **{sleep_end_time.strftime('%d-%b-%Y %I:%M:%S %p')}**"
+                        )
+                        print(f"{Fore.YELLOW}[SMART SLEEP] BREAK #{_lifetime_work_cycles}: {hours}h {mins}m{Style.RESET_ALL}")
+                        await asyncio.sleep(break_duration)
+                        _sleep_mode = False
+                        _lifetime_cycle_start_time = datetime.now()
+                        await ctx.send(
+                            f"⏰ **SMART SLEEP: BACK TO WORK** 🚀\n"
+                            f"Starting work cycle #{_lifetime_work_cycles + 1}"
+                        )
+                        print(f"{Fore.GREEN}[SMART SLEEP] WORK CYCLE #{_lifetime_work_cycles + 1} started{Style.RESET_ALL}")
+                        continue
+
+            if _sleep_mode:
+                await asyncio.sleep(10)
+                continue
+
+
             if data.get("timer_end") and time.time() >= data["timer_end"]:
                 if seq_idx == 0:
                     farming_active = False
@@ -330,19 +420,30 @@ async def run_farm(ctx):
             bet = sequence[seq_idx]
             data["commands_used"] += 1
             save_data(data)
-            
-            await asyncio.sleep(random.uniform(4.1, 16.9))
+            gap = random.uniform(
+                GHOSTY_LIFETIME_MODULE["action_delay_min"],
+                GHOSTY_LIFETIME_MODULE["action_delay_max"],
+            )
+            if random.random() < 0.05:
+                gap += random.uniform(
+                    GHOSTY_LIFETIME_MODULE["random_long_delay_min"],
+                    GHOSTY_LIFETIME_MODULE["random_long_delay_max"],
+                )
+            await asyncio.sleep(gap)
             print(f"{Fore.CYAN}[ROUND] Betting {bet:,} | idx={seq_idx} | seq={seq_name}{Style.RESET_ALL}")
             
             last_owo_id = None
-            try:
-                pre_history = await ctx.channel.history(limit=10).flatten()
-                for m in pre_history:
-                    if m.author.id == OWO_BOT_ID:
-                        last_owo_id = m.id
-                        break
-            except Exception as e:
-                print(f"{Fore.RED}[snapshot error] {e}{Style.RESET_ALL}")
+            for attempt in range(3):
+                try:
+                    pre_history = await ctx.channel.history(limit=10).flatten()
+                    for m in pre_history:
+                        if m.author.id == OWO_BOT_ID:
+                            last_owo_id = m.id
+                            break
+                    break 
+                except Exception as e:
+                    print(f"{Fore.RED}[farm snapshot error] {e}. Retrying {attempt + 1}/3...{Style.RESET_ALL}")
+                    await asyncio.sleep(2)
             
             await ctx.send(f"owo bj {bet}")
             
@@ -371,6 +472,7 @@ async def run_farm(ctx):
                 await asyncio.sleep(5)
                 continue
             last_reaction = None
+            stuck_counter = 0
 
             while farming_active:
                 if await check_warning(ctx):
@@ -386,7 +488,9 @@ async def run_farm(ctx):
                             msg = m
                             break
                 except Exception as e:
-                    print(f"{Fore.RED}[refetch error] {e}{Style.RESET_ALL}")
+                    print(f"{Fore.RED}[Network Drop] {e}. Waiting 10s to force resume...{Style.RESET_ALL}")
+                    await asyncio.sleep(10)
+                    break
                 
                 full_text = get_owo_text(msg)
                 
@@ -395,7 +499,7 @@ async def run_farm(ctx):
                     footer = msg.embeds[0].footer.text or ""
                 footer_lower = footer.lower().strip()
                 
-                if "game in progress" not in footer_lower:
+                if "game in progress" not in footer_lower and "resuming" not in footer_lower:
                     if "won" in footer_lower and "lost" not in footer_lower:
                         data["wins"] += 1
                         data["internal_profit"] = data.get("internal_profit", 0) + bet
@@ -421,10 +525,14 @@ async def run_farm(ctx):
                     else:
                         await asyncio.sleep(2)
                         continue
+          
                 
                 action = decide(full_text)
-
                 emoji = "👊" if action == "hit" else "🛑"
+                await asyncio.sleep(random.uniform(
+                    GHOSTY_LIFETIME_MODULE["reaction_delay_min"],
+                    GHOSTY_LIFETIME_MODULE["reaction_delay_max"],
+                ))
 
                 if last_reaction and last_reaction == emoji:
                     try:
@@ -445,6 +553,12 @@ async def run_farm(ctx):
                     except Exception as e:
                         print(f"{Fore.RED}[react error] {e}{Style.RESET_ALL}")
                 
+                stuck_counter += 1
+                if stuck_counter >= 5:
+                    print(f"{Fore.YELLOW}[STUCK] Game unresponsive after 5 attempts. Waiting 10s to force resume...{Style.RESET_ALL}")
+                    await asyncio.sleep(10)
+                    break
+
                 data["commands_used"] += 1
                 save_data(data)
                 await asyncio.sleep(3)
@@ -526,7 +640,7 @@ async def stoponloss(ctx, amount_str=None):
 @ghosty.command(aliases=["h"])
 async def help(ctx):
     ghosty_help = """
-    # 🤑 GhoSty OwO BlackJack Farm V2 🤑 
+    # 🤑 GhoSty OwO BlackJack Farm V2.1 🤑 
 Prefix: `.`
 
 **__Main__**
@@ -546,6 +660,8 @@ Prefix: `.`
  🏹 Fast And Secure
  🧠 Smart Dynamic
  🎯 Integrated Data with Advanced Decisions
+ 😴 Smart Sleep
+ ✨ Smart Betting Strategy
 
 **__Made with 💖 and 🧠 by GhoSty | [Async Development]__** """
     await ctx.send(ghosty_help)  
@@ -620,7 +736,7 @@ if __name__ == "__main__":
                                           ░░░█████████░░░   ░░███░░░
                                           
                
-                                                 Async Development Stable Build Version: 120426.2.0.0{Style.RESET_ALL}"""
+                                                  Async Development Stable Build Version: 080726.2.1.0{Style.RESET_ALL}"""
     ) 
     print(f"{Fore.LIGHTRED_EX}\n\n > Made By GhoSty [Async Development]{Style.RESET_ALL}")
     ghosty.run(config["TOKEN"], bot=False)
