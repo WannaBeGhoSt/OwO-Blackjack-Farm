@@ -1,4 +1,4 @@
-# GhoSty OwO BlackJack Farm V2.1
+# GhoSty OwO BlackJack Farm V2.1 – Python Discord Self-Bot for OwO Blackjack Automation
 
 ## ⚠️ Disclaimer  
 
